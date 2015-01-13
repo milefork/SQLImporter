@@ -16,16 +16,23 @@ public class Dump {
 	private ArrayList<String> dump;
 	
 	public Dump(String className, String connUrl, String file) {
+		process(className, connUrl, file);
+	}
+	
+	private boolean establishConn(String className, String connUrl) {
 		try {
 			c = new Connection(className, connUrl);
+			return true;
 		} catch (SQLException e) {
 			System.err.println("SQL Connection Error: "+e.getMessage());
-			return;
+			return false;
 		}
-		
+	}
+	
+	private void process(String className, String connUrl, String file) {
 		if(loadFile(file)) {
 			try {
-				if(!c.getConnection().isClosed()) {
+				if(establishConn(className, connUrl)) {
 					System.out.println("Processing "+dump.size() +" Lines.");
 					long start = System.nanoTime();
 					Statement s = c.getConnection().createStatement();
@@ -37,17 +44,17 @@ public class Dump {
 					c.getConnection().close();
 					dump = null;
 					long duration = System.nanoTime() - start;
-					System.out.printf("Done. Time elapsed: %.2f hours:%.2f minutes:%.2f seconds", duration/3600000000000.0,duration/60000000000.0, duration/1000000000.0);
+					System.out.printf("Done. Time elapsed: hours: %.0f minutes:%.0f seconds:%.0f ", duration/3600000000000.0,duration/60000000000.0, duration/1000000000.0);
+					good = true;
 				}
 				else {
-					c = new Connection(className, file);
+					process(className, connUrl, file);
 				}
 			}
 			catch (SQLException e) {
 				System.err.println("SQL Error importing Dump: "+e.getMessage());
 			}
 		}
-		
 	}
 	
 	private void printStatus(int p) {

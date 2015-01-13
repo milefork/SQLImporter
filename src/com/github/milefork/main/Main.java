@@ -16,9 +16,6 @@ public class Main {
 		CommandLineParser p = new GnuParser();
 		try {
 			CommandLine l = p.parse(opt, args);
-			if(l.hasOption("h")) {
-				printHelp();
-			}
 			if(l.hasOption("v")) {
 				printVersion();
 			}
@@ -42,7 +39,8 @@ public class Main {
 	}
 	
 	private static void printVersion() {
-		System.out.println(version);
+		System.out.println();
+		System.out.println("Current Version: "+version);
 	}
 	
 	private static void printHelp() {
@@ -52,12 +50,10 @@ public class Main {
 	
 	private static void createOptions() {
 		opt = new Options();
-		Option help = new Option("h",false, "print this help");
 		Option vers = new Option("v",false, "prints the version");
 		Option imp = OptionBuilder.withArgName("connectionString> <file").hasArgs(2).withValueSeparator(' ').withDescription("imports SQL Dump file using the JDBC Connection string").create("i");
 		
 		opt.addOption(imp);
-		opt.addOption(help);
 		opt.addOption(vers);
 	}
 
