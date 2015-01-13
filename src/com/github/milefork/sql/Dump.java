@@ -7,6 +7,9 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Scanner;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.concurrent.Callable;
 
 
 public class Dump {
@@ -14,6 +17,9 @@ public class Dump {
 	public boolean good=false;
 	private Connection c;
 	private ArrayList<String> dump;
+	private int index;
+	private int counter;
+	private Timer t;
 	
 	public Dump(String className, String connUrl, String file) {
 		process(className, connUrl, file);
@@ -37,14 +43,24 @@ public class Dump {
 					long start = System.nanoTime();
 					Statement s = c.getConnection().createStatement();
 					s.execute("BEGIN;");
+					int siz = dump.size();
+					counter = siz;
+					prepareTimer(5000, new Callable<Integer>() {
+						public Integer call() {
+							return printStatus();
+						}
+					});
 					for(int i=0;i<dump.size();i++) {
-						printStatus(i);
+						index = i;
+						
 						s.execute(dump.get(i));
 					}
 					c.getConnection().close();
+					t.cancel();
+					t = null;
 					dump = null;
 					long duration = System.nanoTime() - start;
-					System.out.printf("Done. Time elapsed: hours: %.0f minutes:%.0f seconds:%.0f ", duration/3600000000000.0,duration/60000000000.0, duration/1000000000.0);
+					System.out.printf("Done. Time elapsed: hours: %.0f minutes:%.0f seconds:%.0f \n", duration/3600000000000.0,(duration/60000000000.0)%60, (duration/1000000000.0)%60);
 					good = true;
 				}
 				else {
@@ -57,8 +73,13 @@ public class Dump {
 		}
 	}
 	
-	private void printStatus(int p) {
-		System.out.println("Excecuting "+p+" / "+dump.size());
+	private int printStatus() {
+		System.out.println("Excecuting "+index+" / "+counter);
+		return 0;
+	}
+	private int printProcess() {
+		System.out.println("Processing Line "+index+" / "+counter);
+		return 0;
 	}
 	
 	private boolean loadFile(String fileName) {
@@ -69,29 +90,44 @@ public class Dump {
 			Scanner s = new Scanner(instr,"UTF-8");
 			dump = new ArrayList<String>();
 			while (s.hasNextLine()) {
-				q.add(s.nextLine());
+				command = s.nextLine();
+				if(command.isEmpty()) {
+					continue;
+				}
+				if(command.contains("/*")) {
+					continue;
+				}
+				if(command.contains("--")) {
+					continue;
+				}
+				q.add(command);
 			}
 			s.close();
 			boolean cont=false;
-			for (String x : q) {
-				if(!x.isEmpty()) {
-					if(x.contains("/*")) {
-						continue;
-					}
-					if(x.contains("--")) {
-						continue;
-					}
-					if(x.contains(";")) {
-						cont=true;
-					}
-					command+=x;
-					if(cont) {
-						dump.add(command);
-						command="";
-						cont=false;
-					}
+			command = "";
+			int size = q.size();
+			counter = size;
+			prepareTimer(5000, new Callable<Integer>() {
+				public Integer call() {
+					return printProcess();
+				}
+			});
+			for(int i=0;i<size;i++) {
+				String x = q.get(i);
+				index = i;
+				if(x.contains(";")) {
+					cont=true;
+				}
+				command+=x;
+				if(cont) {
+					dump.add(command);
+					command="";
+					cont=false;
 				}
 			}
+			t.cancel();
+			t=null;
+			q.clear();
 			q = null;
 			
 			
@@ -100,5 +136,21 @@ public class Dump {
 			return false;
 		}
 		return true;
+	}
+	
+	private void prepareTimer(int trigger,Callable<Integer> func) {
+		t = new Timer();
+		t.schedule(new TimerTask() {
+			
+			@Override
+			public void run() {
+				try {
+					func.call();
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+			}
+		}, 0,trigger);
 	}
 }
